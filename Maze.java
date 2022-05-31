@@ -1,6 +1,6 @@
 import java.awt.*;
 import javax.swing.*;
-
+import java.awt.event.*;  
 /**
  * Creates a random maze, then solves it by finding a path from the
  * upper left corner to the lower right corner.  (After doing
@@ -8,23 +8,41 @@ import javax.swing.*;
  * new random maze.)
  */
 public class Maze extends JPanel implements Runnable {
-    
+    public static int flag=0;
     // a main routine makes it possible to run this class as a program
     public static void main(String[] args) {
+        
         JFrame window = new JFrame("Maze Solver");
         JMenuItem greedy,backtrack;    
         JMenuBar mb=new JMenuBar();    
-        JMenu file,edit,help;    
+        JMenu file,edit,help;
+        final JLabel label = new JLabel();            
         file=new JMenu("Start");    
         edit=new JMenu("End");    
         help=new JMenu("Algo");
         greedy = new JMenuItem("Greedy");
         backtrack = new JMenuItem("Backtracking");
-        // greedy.addActionListener(this);    
-        // backtrack.addActionListener(this);   
         help.add(greedy);
         help.add(backtrack);
-        mb.add(file);mb.add(edit);mb.add(help);      
+        mb.add(file);mb.add(edit);mb.add(help);
+       /* window.addMouseListener(new MouseAdapter() {  
+            public void mouseClicked(MouseEvent e) {              
+                mb.show(window , e.getX(), e.getY());  
+            }                 
+         });  */
+        greedy.addActionListener(new ActionListener(){  
+         public void actionPerformed(ActionEvent e) {              
+             label.setText("cut MenuItem clicked.");  
+            flag=0;
+         }  
+        });  
+        backtrack.addActionListener(new ActionListener(){  
+            public void actionPerformed(ActionEvent e) {              
+                label.setText("copy MenuItem clicked."); 
+                flag=1; 
+            }  
+           });  
+           
         window.add(mb);
         window.setJMenuBar(mb);  
         window.setContentPane(new Maze());
@@ -33,13 +51,8 @@ public class Maze extends JPanel implements Runnable {
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         window.setVisible(true);
     }
-    // public void actionPerformed(ActionEvent e) {    
-    //     if(e.getSource()== greedy)    
-    //         System.println    
-    //     if(e.getSource()== backtrack)    
-    //     ta.paste();    
-           
-    //     }     
+    
+       
 
     int[][] maze;   // Description of state of maze.  The value of maze[i][j]
                     // is one of the constants wallCode, pathcode, emptyCode,
@@ -61,7 +74,7 @@ public class Maze extends JPanel implements Runnable {
 
     Color[] color;          // colors associated with the preceding 5 constants;
     int rows = 31;          // number of rows of cells in maze, including a wall around edges
-    int columns = 41;       // number of columns of cells in maze, including a wall around edges
+    int columns = 31;       // number of columns of cells in maze, including a wall around edges
     int border = 0;         // minimum number of pixels between maze and edge of panel
     int sleepTime = 5000;   // wait time after solving one maze before making another
     int speedSleep = 30;    // short delay between steps in making and solving maze
@@ -94,7 +107,7 @@ public class Maze extends JPanel implements Runnable {
         new Thread(this).start();
     }
 
-    void checkSize() {
+   void checkSize() {
             // Called before drawing the maze, to set parameters used for drawing.
         if (getWidth() != width || getHeight() != height) {
             width  = getWidth();
@@ -116,10 +129,36 @@ public class Maze extends JPanel implements Runnable {
 
     void redrawMaze(Graphics g) {
             // draws the entire maze
+
+
+        /*if(mazeExists)
+        {  int w = totalWidth / columns;  // width of each cell
+            int h = totalHeight / rows;    // height of each cell
+            for (int j=0; j<columns; j++){
+                
+                    if (maze[0][j] < 0)
+                        g.setColor(color[emptyCode]);
+                    else
+                        g.setColor(color[maze[0][j]]);
+                    g.fillRect( (j * w) + left, (0* h) + top, w, h );
+                System.out.println(j);
+        }
+        for (int j=0; j<rows; j++){
+                
+            if (maze[j][0] < 0)
+                g.setColor(color[emptyCode]);
+            else
+                g.setColor(color[maze[j][0]]);
+            g.fillRect( (0 * w) + left, (j * h) + top, w, h );
+        
+            }
+
+
+        }*/
         if (mazeExists) {
             int w = totalWidth / columns;  // width of each cell
             int h = totalHeight / rows;    // height of each cell
-            for (int j=0; j<columns; j++)
+            for (int j=0; j<columns; j++){
                 for (int i=0; i<rows; i++) {
                     if (maze[i][j] < 0)
                         g.setColor(color[emptyCode]);
@@ -129,14 +168,20 @@ public class Maze extends JPanel implements Runnable {
                 }
         }
     }
-
+    }
     public void run() {
             // run method for thread repeatedly makes a maze and then solves it
         try { Thread.sleep(1000); } // wait a bit before starting
         catch (InterruptedException e) { }
         while (true) {
-            makeMaze();
-            solveMaze(1,1);
+            if(Maze.flag == 0)
+                {   makemazegreedy();
+                    solve(1,1);
+                }
+            else 
+                {   makeMaze();
+                   // solveMaze(1,1);
+                }
             synchronized(this) {
                 try { wait(sleepTime); }
                 catch (InterruptedException e) { }
@@ -145,6 +190,43 @@ public class Maze extends JPanel implements Runnable {
             repaint();
         }
     }
+void makemazegreedy(){
+    if (maze == null)
+    maze = new int[rows][columns];
+    int i,j;
+        int emptyCt = 0; // number of rooms
+        int wallCt = 0;  // number of walls
+        int[] wallrow = new int[(rows*columns)/2];  // position of walls between rooms
+        int[] wallcol = new int[(rows*columns)/2];
+        for (i = 0; i<rows; i++)  // start with everything being a wall
+            for (j = 0; j < columns; j++)
+                maze[i][j] = wallCode;
+        for (i = 1; i<rows-1; i += 2)  // make a grid of empty rooms
+            for (j = 1; j<columns-1; j += 2) {
+                emptyCt++;
+                maze[i][j] = -emptyCt;  // each room is represented by a different negative number
+                if (i < rows-2) {  // record info about wall below this room
+                    wallrow[wallCt] = i+1;
+                    wallcol[wallCt] = j;
+                    wallCt++;
+                }
+                if (j < columns-2) {  // record info about wall to right of this room
+                    wallrow[wallCt] = i;
+                    wallcol[wallCt] = j+1;
+                    wallCt++;
+                }
+            }
+        mazeExists = true;
+        repaint();
+        for(int k=1;k<rows-2;k++)
+        {  maze[k][k+2]=1;
+           maze[k][k+1]=3;
+           maze[k+1][k+1]=3;
+        }
+        mazeExists = true;
+   repaint();
+  
+} 
 
     void makeMaze() {
             // Create a random maze.  The strategy is to start with
@@ -179,6 +261,7 @@ public class Maze extends JPanel implements Runnable {
             }
         mazeExists = true;
         repaint();
+        
         int r;
         for (i=wallCt-1; i>0; i--) {
             r = (int)(Math.random() * i);  // choose a wall randomly and maybe tear it down
@@ -228,11 +311,34 @@ public class Maze extends JPanel implements Runnable {
             fill(row,col-1,replace,replaceWith);
         }
     }
+    boolean solve(int row,int col){
+        if (maze[row][col] == emptyCode) {
+            maze[row][col] = pathCode;      // add this cell to the path
+            repaint();
+            if (row == rows-2 && col == columns-2)
+                return true;  // path has reached goal
+            try { Thread.sleep(speedSleep); }
+            catch (InterruptedException e) { }
+            if ( solve(row+1,col)  ||     // try to solve maze by extending path
+                    solve(row,col+1)    //    in each possible direction
+                     )
+                return true;
+            // maze can't be solved from this cell, so backtrack out of the cell
+            maze[row][col] = visitedCode;   // mark cell as having been visited
+            repaint();
+            synchronized(this) {
+                try { wait(speedSleep); }
+                catch (InterruptedException e) { }
+            }
+        }
+        return false;
 
+    }
     boolean solveMaze(int row, int col) {
             // Try to solve the maze by continuing current path from position
             // (row,col).  Return true if a solution is found.  The maze is
             // considered to be solved if the path reaches the lower right cell.
+            //System.out.println("Inside");
         if (maze[row][col] == emptyCode) {
             maze[row][col] = pathCode;      // add this cell to the path
             repaint();
